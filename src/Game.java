@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class Game {
@@ -171,14 +173,57 @@ public class Game {
 	}
 
 	public boolean collectDragons(final int color) {
-		// TODO check if there is a slot open
-
+		// The value of the dragons of the given color
 		final int dragon = (color | 0b100) << 4;
 
-		int i = 0;
-		for (int n = 0; n < board.size(); n++) {
-
+		// Check open top board slots
+		int openIndex = -1;
+		for (int i = 0; i < 2; i++) {
+			// Can use an empty space or a space with the correct dragon in it already
+			if (sideboardCard(i) < 0 || sideboardCard(i) == dragon) {
+				openIndex = i;
+				break;
+			}
 		}
+		// If there are no open top board slots
+		if (openIndex < 0) return false;
+
+		final Set<Integer> matches = new HashSet<>();
+
+		// Count the number of dragons at the bottom of the main board
+		for (int n = 0; n < board.size(); n++) {
+			if (cardAt(n, cardsIn(n) - 1) == dragon) {
+				matches.add(n);
+				if (matches.size() >= 4) break;
+			}
+		}
+
+		if (matches.size() < 4) { // If there are less than four open dragons in the main board
+			// Check the sideboard
+			for (int n = 0; n < 3; n++) {
+				if (sideboardCard(n) == dragon) {
+					matches.add(n - 3); // Top bar values range from -3 to -1
+					if (matches.size() >= 4) break;
+				}
+			}
+
+			// Less than four dragons open
+			if (matches.size() < 4) return false;
+		}
+
+		System.out.println(matches);
+
+		// Remove dragons from board
+		for (final Integer slot : matches) {
+			if (slot > 0) { // Main board
+				final List<Integer> slotList = board.get(slot);
+				slotList.remove(slotList.size() - 1);
+			} else { // Sideboard
+				topBoard.set(slot + 3, -1);
+			}
+		}
+
+		topBoard.set(openIndex, 0b1001111 | color << 4);
 
 		return true;
 	}
