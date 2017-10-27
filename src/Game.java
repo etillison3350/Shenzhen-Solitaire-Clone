@@ -124,6 +124,8 @@ public class Game {
 		if (destIndex == -2) {
 			if (bottomCard != ROSE) { // The rose can always be completed if it has not yet
 										// been
+				if ((bottomCard & 0b1001111) == DRAGON_MOD) return false; // Cannot complete dragons
+
 				final int color = bottomCard >> 4 & 0b11;
 
 				// Completed cards must be one higher than the current complete card.
@@ -178,13 +180,16 @@ public class Game {
 
 		// Check open top board slots
 		int openIndex = -1;
-		for (int i = 0; i < 2; i++) {
+		for (int i = 0; i < 3; i++) {
+			System.out.println(sideboardCard(i));
+
 			// Can use an empty space or a space with the correct dragon in it already
 			if (sideboardCard(i) < 0 || sideboardCard(i) == dragon) {
 				openIndex = i;
 				break;
 			}
 		}
+
 		// If there are no open top board slots
 		if (openIndex < 0) return false;
 
@@ -211,11 +216,9 @@ public class Game {
 			if (matches.size() < 4) return false;
 		}
 
-		System.out.println(matches);
-
 		// Remove dragons from board
 		for (final Integer slot : matches) {
-			if (slot > 0) { // Main board
+			if (slot >= 0) { // Main board
 				final List<Integer> slotList = board.get(slot);
 				slotList.remove(slotList.size() - 1);
 			} else { // Sideboard
@@ -244,6 +247,8 @@ public class Game {
 				ret.append(colors[card >> 4 & 0b11]);
 				if ((card & 0b1001111) == DRAGON_MOD) {
 					ret.append('D');
+				} else if ((card & 0b1001111) == 0b1001111) {
+					ret.append('X');
 				} else {
 					ret.append(card & 0b1111);
 				}

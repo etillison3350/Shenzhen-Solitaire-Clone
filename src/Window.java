@@ -19,10 +19,14 @@ public class Window extends Application {
 			final String line = scanner.nextLine();
 
 			try {
-				final int[] values = Arrays.stream(line.split("\\s+")).mapToInt(Integer::parseInt).toArray();
-				System.out.println(game.move(values[0], values[1], values[2], values[3]));
-			} catch (final Exception e) {
-				System.out.println(game.collectDragons(Integer.parseInt(line)));
+				try {
+					final int[] values = Arrays.stream(line.split("\\s+")).mapToInt(Integer::parseInt).toArray();
+					System.out.println(game.move(values[0], values[1], values[2], values[3]));
+				} catch (final Exception e) {
+					System.out.println(game.collectDragons(Integer.parseInt(line)));
+				}
+			} catch (Exception e) {
+				System.out.println(false);
 			}
 		}
 
