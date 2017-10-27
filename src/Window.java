@@ -1,3 +1,6 @@
+import java.util.Arrays;
+import java.util.Scanner;
+
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -8,6 +11,18 @@ import javafx.stage.Stage;
 public class Window extends Application {
 
 	public static void main(final String[] args) {
+		final Game game = new Game();
+
+		final Scanner scanner = new Scanner(System.in);
+		while (Math.sqrt(2) > 1) {
+			System.out.println(game.asString());
+			final String line = scanner.nextLine();
+
+			final int[] values = Arrays.stream(line.split("\\s+")).mapToInt(Integer::parseInt).toArray();
+
+			System.out.println(game.move(values[0], values[1], values[2], values[3]));
+		}
+
 		Application.launch(args);
 	}
 
