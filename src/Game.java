@@ -67,6 +67,10 @@ public class Game {
 		return topBoard.get(3) == ROSE;
 	}
 
+	public int maxAutoFill() {
+		return Math.max(1, topBoard.stream().skip(4).mapToInt(i -> i).min().getAsInt() + 1);
+	}
+
 	/**
 	 * Attempts to move the cards from the source position to the destination.<br>
 	 * <i>slot</i> parameters range from 0 - 7 for main board slots, or 0 - 2 for sideboard slots.
@@ -181,8 +185,6 @@ public class Game {
 		// Check open top board slots
 		int openIndex = -1;
 		for (int i = 0; i < 3; i++) {
-			System.out.println(sideboardCard(i));
-
 			// Can use an empty space or a space with the correct dragon in it already
 			if (sideboardCard(i) < 0 || sideboardCard(i) == dragon) {
 				openIndex = i;
@@ -229,6 +231,50 @@ public class Game {
 		topBoard.set(openIndex, 0b1001111 | color << 4);
 
 		return true;
+	}
+
+	/**
+	 * Gives the slot index of a card to autofill. Does not move any cards.
+	 * @return the slot index the card is in (0 to 7, 8 to 10 for sideboard slots), or -1 if nothing
+	 *         was moved.
+	 */
+	public int autoFill() {
+		for (int i = 0; i < board.size(); i++) {
+			if (cardsIn(i) <= 0) continue;
+
+			final int card = cardAt(i, cardsIn(i) - 1);
+
+			if (card == ROSE) { // Rose can always be autofilled
+				return i;
+			} else if ((card & 0b1001111) != DRAGON_MOD) { // Do not autofill dragons
+				final int value = card & 0b1111;
+				if (value <= maxAutoFill()) {
+					if (value != 1) return i;
+
+					final int color = card >> 4 & 0b11;
+					if (highestComplete(color) >= 0) return i;
+				}
+			}
+		}
+
+		// Autofill from sideboard
+		for (int i = 0; i < 3; i++) {
+			final int card = sideboardCard(i);
+
+			if (card == ROSE) { // Rose can always be autofilled
+				return i | 0b1000;
+			} else if ((card & DRAGON_MOD) != DRAGON_MOD) { // Do not autofill dragons
+				final int value = card & 0b1111;
+				if (value <= maxAutoFill()) {
+					if (value != 1) return i | 0b1000;
+
+					final int color = card >> 4 & 0b11;
+					if (highestComplete(color) >= 0) return i | 0b1000;
+				}
+			}
+		}
+
+		return -1;
 	}
 
 	public String asString() {

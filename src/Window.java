@@ -15,6 +15,11 @@ public class Window extends Application {
 
 		final Scanner scanner = new Scanner(System.in);
 		while (Math.sqrt(2) > 1) {
+			int auto;
+			while ((auto = game.autoFill()) >= 0) {
+				game.move(auto & 0b111, auto < 8 ? game.cardsIn(auto) - 1 : -1, 0, -2);
+			}
+
 			System.out.println(game.asString());
 			final String line = scanner.nextLine();
 
@@ -25,7 +30,7 @@ public class Window extends Application {
 				} catch (final Exception e) {
 					System.out.println(game.collectDragons(Integer.parseInt(line)));
 				}
-			} catch (Exception e) {
+			} catch (final Exception e) {
 				System.out.println(false);
 			}
 		}
