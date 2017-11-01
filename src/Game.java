@@ -17,8 +17,8 @@ public class Game {
 	// Rose: 0b1111111
 	// Empty: -1
 
-	private static final int ROSE = 0b1111111;
-	private static final int DRAGON_MOD = 0b1000000;
+	public static final int ROSE = 0b1111111;
+	public static final int DRAGON_MOD = 0b1000000;
 
 	public Game() {
 		final List<Integer> cards = new ArrayList<>();
