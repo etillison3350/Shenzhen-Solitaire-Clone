@@ -108,16 +108,8 @@ public class Game {
 				return false;
 			}
 		} else {
-			int value = bottomCard = cardAt(srcSlot, srcIndex);
-			for (int i = srcIndex + 1; i < cardsIn(srcSlot); i++) {
-				final int n = cardAt(srcSlot, i);
-
-				// Check that every card is one more than the card below it and that no two
-				// consecutive cards are the same color.
-				if ((value & 0b1111) - 1 != (n & 0b1111) || (value & 0b110000) == (n & 0b110000)) return false;
-
-				value = n;
-			}
+			bottomCard = cardAt(srcSlot, srcIndex);
+			if (!canDrag(srcSlot, srcIndex)) return false;
 
 			numCards = cardsIn(srcSlot) - srcIndex; // Calculate the number of cards to be moved.
 		}
@@ -275,6 +267,34 @@ public class Game {
 		}
 
 		return -1;
+	}
+
+	/**
+	 * Evaluates whether or not the card at the given position is able to be dragged, i.e. are all
+	 * cards below it in a pattern such that each card is one less that the card above it, and that
+	 * neighbouring cards are of different colors?
+	 * @param slot - The slot that the card is in, as in {@link #move(int, int, int, int)}
+	 * @param index - The index of the card, as in {@link #move(int, int, int, int)}
+	 * @return Whether or not the given card can be dragged.
+	 */
+	public boolean canDrag(final int slot, final int index) {
+		if (index == -2) {
+			return false;
+		} else if (index == -1) {
+			return true;
+		} else {
+			int value = cardAt(slot, index);
+			for (int i = index + 1; i < cardsIn(slot); i++) {
+				final int n = cardAt(slot, i);
+
+				// Check that every card is one more than the card below it and that no two
+				// consecutive cards are the same color.
+				if ((value & DRAGON_MOD) > 0 || (value & 0b1111) - 1 != (n & 0b1111) || (value & 0b110000) == (n & 0b110000)) return false;
+
+				value = n;
+			}
+			return true;
+		}
 	}
 
 	public String asString() {

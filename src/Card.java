@@ -53,6 +53,8 @@ public class Card extends Label {
 		setOnMousePressed(event -> {
 			if (!draggable.test(this)) return;
 
+			toFront();
+
 			offsetX = getTranslateX() - event.getSceneX();
 			offsetY = getTranslateY() - event.getSceneY();
 			start = new Point2D(getTranslateX(), getTranslateY());
