@@ -170,7 +170,13 @@ public class Game {
 		return true;
 	}
 
-	public boolean collectDragons(final int color) {
+	/**
+	 * Attempts to collect dragons of the given color.
+	 * @param color - The color to move
+	 * @return A {@link DragonCollectionResult} if the move was successful, <code>null</code>
+	 *         otherwise.
+	 */
+	public DragonCollectionResult collectDragons(final int color) {
 		// The value of the dragons of the given color
 		final int dragon = (color | 0b100) << 4;
 
@@ -185,7 +191,7 @@ public class Game {
 		}
 
 		// If there are no open top board slots
-		if (openIndex < 0) return false;
+		if (openIndex < 0) return null;
 
 		final Set<Integer> matches = new HashSet<>();
 
@@ -207,7 +213,7 @@ public class Game {
 			}
 
 			// Less than four dragons open
-			if (matches.size() < 4) return false;
+			if (matches.size() < 4) return null;
 		}
 
 		// Remove dragons from board
@@ -222,7 +228,7 @@ public class Game {
 
 		topBoard.set(openIndex, 0b1001111 | color << 4);
 
-		return true;
+		return new DragonCollectionResult(matches.stream().mapToInt(i -> i).toArray(), openIndex);
 	}
 
 	/**
@@ -281,7 +287,7 @@ public class Game {
 		if (index == -2) {
 			return false;
 		} else if (index == -1) {
-			return true;
+			return (topBoard.get(slot) & 0b1001111) != 0b1001111;
 		} else {
 			int value = cardAt(slot, index);
 			for (int i = index + 1; i < cardsIn(slot); i++) {

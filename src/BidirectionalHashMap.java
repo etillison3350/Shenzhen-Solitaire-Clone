@@ -35,6 +35,12 @@ public class BidirectionalHashMap<K, V> extends HashMap<K, V> {
 		return ret;
 	}
 
+	public K removeValue(final Object value) {
+		final K ret = reverseMap.remove(value);
+		super.remove(ret);
+		return ret;
+	}
+
 	@Override
 	public void clear() {
 		super.clear();

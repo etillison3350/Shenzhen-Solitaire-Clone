@@ -6,11 +6,13 @@ import javafx.beans.property.Property;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.CornerRadii;
@@ -23,9 +25,11 @@ public class Card extends Label {
 	private final IntegerProperty slot = new SimpleIntegerProperty(0);
 	private final IntegerProperty index = new SimpleIntegerProperty(0);
 	private final Property<ChangeListener<Point2D>> onMove = new SimpleObjectProperty<>();
+	private final Property<EventHandler<MouseEvent>> onDrag = new SimpleObjectProperty<>();
 
 	private double offsetX, offsetY;
 	private Point2D start;
+	public static final String[] COLORS = new String[] {"Red", "Green", "Black"};
 
 	public Card(final int card, final NumberBinding widthBinding) {
 		this(card, widthBinding, c -> true);
@@ -53,7 +57,9 @@ public class Card extends Label {
 		setOnMousePressed(event -> {
 			if (!draggable.test(this)) return;
 
-			toFront();
+			if (onDrag.getValue() != null) {
+				onDrag.getValue().handle(event);
+			}
 
 			offsetX = getTranslateX() - event.getSceneX();
 			offsetY = getTranslateY() - event.getSceneY();
@@ -147,5 +153,17 @@ public class Card extends Label {
 
 	public Property<ChangeListener<Point2D>> onMoveProperty() {
 		return onMove;
+	}
+
+	public EventHandler<MouseEvent> getOnDrag() {
+		return onDrag.getValue();
+	}
+
+	public void setOnDrag(final EventHandler<MouseEvent> onDrag) {
+		this.onDrag.setValue(onDrag);
+	}
+
+	public Property<EventHandler<MouseEvent>> onDragProperty() {
+		return onDrag;
 	}
 }
