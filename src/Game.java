@@ -68,7 +68,16 @@ public class Game {
 	}
 
 	public int maxAutoFill() {
-		return Math.max(1, topBoard.stream().skip(4).mapToInt(i -> i).min().getAsInt() + 1);
+		int minValue = Integer.MAX_VALUE;
+		for (int color = 0; color < 3; color++) {
+			final int n = highestComplete(color) + 1;
+			if (n < minValue) {
+				minValue = n;
+			}
+		}
+
+		if (minValue < 1) return 1;
+		return minValue;
 	}
 
 	/**
@@ -197,7 +206,7 @@ public class Game {
 
 		// Count the number of dragons at the bottom of the main board
 		for (int n = 0; n < board.size(); n++) {
-			if (cardAt(n, cardsIn(n) - 1) == dragon) {
+			if (cardsIn(n) > 0 && cardAt(n, cardsIn(n) - 1) == dragon) {
 				matches.add(n);
 				if (matches.size() >= 4) break;
 			}
@@ -207,7 +216,7 @@ public class Game {
 			// Check the sideboard
 			for (int n = 0; n < 3; n++) {
 				if (sideboardCard(n) == dragon) {
-					matches.add(n - 3); // Top bar values range from -3 to -1
+					matches.add(n + 8); // Top bar values range from 8 to 10
 					if (matches.size() >= 4) break;
 				}
 			}
@@ -218,11 +227,11 @@ public class Game {
 
 		// Remove dragons from board
 		for (final Integer slot : matches) {
-			if (slot >= 0) { // Main board
+			if (slot < 8) { // Main board
 				final List<Integer> slotList = board.get(slot);
 				slotList.remove(slotList.size() - 1);
 			} else { // Sideboard
-				topBoard.set(slot + 3, -1);
+				topBoard.set(slot - 8, -1);
 			}
 		}
 
@@ -237,20 +246,22 @@ public class Game {
 	 *         was moved.
 	 */
 	public int autoFill() {
+		// Iterate through the main board slots
 		for (int i = 0; i < board.size(); i++) {
-			if (cardsIn(i) <= 0) continue;
+			if (cardsIn(i) <= 0) continue; // Cannot autofill from an empty slot
 
 			final int card = cardAt(i, cardsIn(i) - 1);
 
 			if (card == ROSE) { // Rose can always be autofilled
 				return i;
 			} else if ((card & 0b1001111) != DRAGON_MOD) { // Do not autofill dragons
+				// The number value of the card
 				final int value = card & 0b1111;
 				if (value <= maxAutoFill()) {
-					if (value != 1) return i;
+					// if (value != 1) return i;
 
 					final int color = card >> 4 & 0b11;
-					if (highestComplete(color) >= 0) return i;
+					if (highestComplete(color) == value - 1) return i;
 				}
 			}
 		}
@@ -301,6 +312,21 @@ public class Game {
 			}
 			return true;
 		}
+	}
+
+	public boolean isWon() {
+		// Check whether the top board has all the right cards (rose, complete dragons, row of 8s)
+		if (!rose()) return false;
+
+		for (int i = 0; i < 3; i++) {
+			if ((sideboardCard(i) & 0b1001111) != 0b1001111) return false;
+		}
+
+		for (int color = 0; color < 3; color++) {
+			if (highestComplete(color) < 8) return false;
+		}
+
+		return true;
 	}
 
 	public String asString() {

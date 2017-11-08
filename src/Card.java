@@ -17,6 +17,7 @@ import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 
 public class Card extends Label {
 
@@ -47,6 +48,11 @@ public class Card extends Label {
 		maxWidthProperty().bind(this.widthBinding);
 		minHeightProperty().bind(heightBinding);
 		maxHeightProperty().bind(heightBinding);
+
+		setFont(new Font(heightBinding.getValue().doubleValue() / 8));
+		heightBinding.addListener((observable, oldValue, newValue) -> {
+			setFont(new Font(newValue.doubleValue() / 8));
+		});
 
 		setBackground(new Background(new BackgroundFill(Color.LIGHTGRAY, new CornerRadii(10), Insets.EMPTY)));
 
