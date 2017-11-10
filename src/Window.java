@@ -3,6 +3,7 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
@@ -80,26 +81,26 @@ public class Window extends Application {
 
 				final Point oldPosition = cards.getKey(card);
 
-				final int newX = (int) (newValue.getX() / cardWidth.doubleValue() + 0.5);
+				int newX = (int) (newValue.getX() / cardWidth.doubleValue() + 0.5);
 
-				boolean moved, sideboard = false;
-				int srcSlotCards = 0, destSlotCards = 0, index = 0;
+				boolean moved, destSideboard = false;
+				int srcSlotCards = 0, destSlotCards = 0, destIndex = 0;
 				if (newX < 0 || newX >= 8) {
 					moved = false;
 				} else {
-					sideboard = 2 * newValue.getY() < cardWidth.doubleValue() * (game.cardsIn(newX) + 5) * 7 / 25 + 16;
+					destSideboard = 2 * newValue.getY() < cardWidth.doubleValue() * (game.cardsIn(newX) + 5) * 7 / 25 + 16;
 
 					// The number of cards originally in the source slot; there can only be one in
 					// the sideboard
 					srcSlotCards = oldPosition.y < 0 ? 1 : game.cardsIn(oldPosition.x);
 
 					// The number of cards originally in the destination slot
-					destSlotCards = sideboard ? -1 : game.cardsIn(newX);
+					destSlotCards = destSideboard ? -1 : game.cardsIn(newX);
 
 					// The destIndex parameter for game#move
-					index = sideboard ? newX > 3 ? -2 : -1 : 0;
+					destIndex = destSideboard ? newX > 3 ? -2 : -1 : 0;
 					try {
-						moved = game.move(oldPosition.x, oldPosition.y, newX, index);
+						moved = game.move(oldPosition.x, oldPosition.y, newX, destIndex);
 					} catch (final Exception e) {
 						moved = false;
 					}
@@ -110,10 +111,16 @@ public class Window extends Application {
 
 				Card oldCard = null;
 
-				if (moved) { // Update the positions in #cards
+				// Update the positions in #cards if cards were moved
+				if (moved) {
+					// Determine the color of the card if it's being completed
+					if (destIndex == -2) newX = 5 + (card.card >> 4) & 0b11;
+
 					// The number of cards that are being moved. There is always one card moved from
 					// the sideboard.
-					final int numCards = index >= 0 ? srcSlotCards - oldPosition.y : 1;
+					final int numCards = oldPosition.y >= 0 ? srcSlotCards - oldPosition.y : 1;
+
+					System.out.println("NC: " + numCards + "\\" + destIndex + "\\" + destSideboard + "\\" + srcSlotCards + "\\" + destSlotCards + "\\" + newX + "\\" + oldPosition);
 
 					if (numCards > 1) { // If more than one card is moved, move them sequentially
 						for (int n = 0; n < numCards; n++) {
@@ -122,16 +129,19 @@ public class Window extends Application {
 					} else {
 						// Move the card to the new slot; if moving to the sideboard, use index
 						// (-2, -1, or 0), otherwise use destSlotCards (0+)
-						final Card old = cards.put(new Point(newX, index < 0 ? index : destSlotCards), card);
-						if (index == -2) oldCard = old;
+						final Card old = cards.put(new Point(newX, destIndex < 0 ? destIndex : destSlotCards), card);
+						if (destIndex == -2) oldCard = old;
 					}
 
-					xBinding = xBinding(newX, sideboard ? -1 : destSlotCards);
-					yBinding = yBinding(newX, sideboard ? -1 : destSlotCards);
+					xBinding = xBinding(newX, destSideboard ? -1 : destSlotCards);
+					yBinding = yBinding(newX, destSideboard ? -1 : destSlotCards);
 				} else {
 					xBinding = xBinding(oldPosition.x, oldPosition.y);
 					yBinding = yBinding(oldPosition.x, oldPosition.y);
 				}
+
+				checkSync();
+
 				anim.toXProperty().bind(xBinding);
 				anim.toYProperty().bind(yBinding);
 				card.translateXProperty().unbind();
@@ -183,6 +193,9 @@ public class Window extends Application {
 					for (final int slot : res.slots) {
 						final int index = slot >= 8 ? -1 : game.cardsIn(slot);
 						final Card card = cards.get(new Point(slot % 8, index));
+
+						System.out.println("lambda$4: " + res + "\\" + slot + ", " + index + "\\" + card + "\\" + cards);
+
 						card.translateXProperty().unbind();
 						card.translateYProperty().unbind();
 						card.toFront();
@@ -205,6 +218,8 @@ public class Window extends Application {
 						final Card newCard = new Card(game.sideboardCard(res.destinationSlot), cardWidth, this::isDraggable);
 						stackPane.getChildren().add(newCard);
 						cards.put(new Point(res.destinationSlot, -1), newCard);
+
+						checkSync();
 
 						newCard.translateXProperty().bind(xBinding(res.destinationSlot, -1));
 
@@ -236,6 +251,8 @@ public class Window extends Application {
 
 	private ObservableValue<Number> xBinding(final int slot, final int index, final boolean allowRelative) {
 		if (!allowRelative || index < 1) return cardWidth.multiply(slot);
+
+		System.out.println("xBinding: " + cards + "\\" + slot + ", " + index);
 
 		return cards.get(new Point(slot, index - 1)).translateXProperty();
 	}
@@ -273,6 +290,8 @@ public class Window extends Application {
 			final int xTarget = card.card == Game.ROSE ? 4 : 5 + (card.card >> 4 & 0b11);
 			final Card old = cards.put(new Point(xTarget, -2), card);
 
+			checkSync();
+
 			final TranslateTransition tt = new TranslateTransition(Duration.millis(TRANSLATE_DURATION), card);
 			tt.toXProperty().bind(xBinding(xTarget, 0));
 			tt.setToY(0);
@@ -304,9 +323,88 @@ public class Window extends Application {
 	}
 
 	private boolean isDraggable(final Card card) {
+		System.out.println("isDraggable: " + card + "\\" + cards);
+
 		final Point position = cards.getKey(card);
 		// return !isAnimating.getOrDefault(card, false) && game.canDrag(position.x, position.y);
 		return !animating && game.canDrag(position.x, position.y);
+	}
+
+	private final void checkSync() {
+		Point desync = null, values = null;
+
+		final StringBuffer ret = new StringBuffer();
+
+		final char[] colors = {'R', 'G', 'B'};
+
+		for (int i = 0; i < 8; i++) {
+			if (i == 3) {
+				ret.append("   ");
+				continue;
+			}
+
+			final int cardNum = i < 3 ? game.sideboardCard(i) : i == 4 ? game.rose() ? Game.ROSE : -1 : game.highestComplete(i - 5) | i - 5 << 4;
+
+			final Point p = new Point(i, i < 3 ? -1 : -2);
+			final Card card = cards.get(p);
+			if (card == null) {
+				if (cardNum != -1) {
+					desync = p;
+					values = new Point(cardNum, -1);
+					ret.append("!! ");
+				} else {
+					ret.append("   ");
+				}
+			} else if (card.card != cardNum) {
+				desync = p;
+				values = new Point(cardNum, card.card);
+				ret.append("!! ");
+			} else if (cardNum == Game.ROSE) {
+				ret.append("@@ ");
+			} else {
+				ret.append(colors[cardNum >> 4 & 0b11]);
+				ret.append(Card.nameOfCard(cardNum).charAt(0));
+				ret.append(' ');
+			}
+		}
+		ret.append('\n');
+
+		final int maxSize = IntStream.range(0, 8).map(game::cardsIn).max().getAsInt();
+		for (int y = 0; y < maxSize; y++) {
+			for (int s = 0; s < 8; s++) {
+				final int cardNum = game.cardsIn(s) <= y ? -1 : game.cardAt(s, y);
+
+				final Point p = new Point(s, y);
+				final Card card = cards.get(p);
+				if (card == null) {
+					if (cardNum != -1) {
+						desync = p;
+						values = new Point(cardNum, -1);
+						ret.append("!! ");
+					} else {
+						ret.append("   ");
+					}
+				} else if (card.card != cardNum) {
+					desync = p;
+					values = new Point(cardNum, card.card);
+					ret.append("!! ");
+				} else if (cardNum == Game.ROSE) {
+					ret.append("@@ ");
+				} else {
+					ret.append(colors[cardNum >> 4 & 0b11]);
+					ret.append(Card.nameOfCard(cardNum).charAt(0));
+					ret.append(' ');
+				}
+			}
+			ret.append('\n');
+		}
+
+		if (desync == null) {
+			System.out.println(ret);
+		} else {
+			System.err.println(ret);
+			System.err.printf("Point: (%d, %d); Data: %s, Card: %s\n", desync.x, desync.y, Integer.toBinaryString(values.x), Integer.toBinaryString(values.y));
+		}
 	}
 
 	private static Label makePlaceholder(final NumberBinding widthBinding) {

@@ -108,7 +108,7 @@ public class Card extends Label {
 				return "X";
 			}
 		} else {
-			return Integer.toString(card & 0b1111);
+			return Integer.toString(1 + (card & 0b1111));
 		}
 	}
 
@@ -128,7 +128,7 @@ public class Card extends Label {
 	}
 
 	public void setSlot(final int slot) {
-		if (slot < 0 || slot >= 8) throw new IllegalArgumentException("Slot value (" + slot + ")out of bounds");
+		if (slot < 0 || slot >= 8) throw new IllegalArgumentException("Slot value (" + slot + ") out of bounds");
 
 		this.slot.set(slot);
 	}
@@ -171,5 +171,11 @@ public class Card extends Label {
 
 	public Property<EventHandler<MouseEvent>> onDragProperty() {
 		return onDrag;
+	}
+
+	@Override
+	public String toString() {
+		if (card == Game.ROSE) return "Card [Rose]";
+		return String.format("Card [%s %s]", COLORS[card >> 4 & 0b11], nameOfCard(card));
 	}
 }

@@ -1,3 +1,4 @@
+import java.util.Arrays;
 
 public class DragonCollectionResult {
 
@@ -14,6 +15,11 @@ public class DragonCollectionResult {
 	public DragonCollectionResult(final int[] slots, final int destinationSlot) {
 		this.slots = slots;
 		this.destinationSlot = destinationSlot;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("%s [slots=%s, destination=%d]", this.getClass().getName(), Arrays.toString(slots), destinationSlot);
 	}
 
 }
