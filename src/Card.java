@@ -173,9 +173,4 @@ public class Card extends Label {
 		return onDrag;
 	}
 
-	@Override
-	public String toString() {
-		if (card == Game.ROSE) return "Card [Rose]";
-		return String.format("Card [%s %s]", COLORS[card >> 4 & 0b11], nameOfCard(card));
-	}
 }
