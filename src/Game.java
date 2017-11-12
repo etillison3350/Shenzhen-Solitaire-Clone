@@ -179,13 +179,7 @@ public class Game {
 		return true;
 	}
 
-	/**
-	 * Attempts to collect dragons of the given color.
-	 * @param color - The color to move
-	 * @return A {@link DragonCollectionResult} if the move was successful, <code>null</code>
-	 *         otherwise.
-	 */
-	public DragonCollectionResult collectDragons(final int color) {
+	public DragonCollectionResult canCollectDragons(final int color) {
 		// The value of the dragons of the given color
 		final int dragon = (color | 0b100) << 4;
 
@@ -225,8 +219,12 @@ public class Game {
 			if (matches.size() < 4) return null;
 		}
 
+		return new DragonCollectionResult(matches.stream().mapToInt(i -> i).toArray(), openIndex, color);
+	}
+
+	public void collectDragons(final DragonCollectionResult dcr) {
 		// Remove dragons from board
-		for (final Integer slot : matches) {
+		for (final Integer slot : dcr.slots) {
 			if (slot < 8) { // Main board
 				final List<Integer> slotList = board.get(slot);
 				slotList.remove(slotList.size() - 1);
@@ -235,9 +233,7 @@ public class Game {
 			}
 		}
 
-		topBoard.set(openIndex, 0b1001111 | color << 4);
-
-		return new DragonCollectionResult(matches.stream().mapToInt(i -> i).toArray(), openIndex);
+		topBoard.set(dcr.destinationSlot, 0b1001111 | dcr.color << 4);
 	}
 
 	/**

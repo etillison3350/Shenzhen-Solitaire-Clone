@@ -37,7 +37,7 @@ public class Card extends Label {
 	}
 
 	public Card(final int card, final NumberBinding widthBinding, final Predicate<Card> draggable) {
-		super(nameOfCard(card));
+		super(" " + nameOfCard(card));
 		setTextFill(cardColor(card));
 
 		this.card = card;
@@ -54,7 +54,7 @@ public class Card extends Label {
 			setFont(new Font(newValue.doubleValue() / 8));
 		});
 
-		setBackground(new Background(new BackgroundFill(Color.LIGHTGRAY, new CornerRadii(10), Insets.EMPTY)));
+		setBackground(new Background(new BackgroundFill(new Color(.9, .9, .9, 1), new CornerRadii(10), Insets.EMPTY)));
 
 		setEffect(new DropShadow(3, 0, 1, Color.BLACK));
 

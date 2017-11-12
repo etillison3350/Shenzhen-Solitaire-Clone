@@ -10,9 +10,12 @@ public class DragonCollectionResult {
 	 */
 	public final int destinationSlot;
 
-	public DragonCollectionResult(final int[] slots, final int destinationSlot) {
+	public final int color;
+
+	public DragonCollectionResult(final int[] slots, final int destinationSlot, final int color) {
 		this.slots = slots;
 		this.destinationSlot = destinationSlot;
+		this.color = color;
 	}
 
 }
