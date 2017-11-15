@@ -59,7 +59,10 @@ public class Window extends Application {
 
 		stackPane.setAlignment(Pos.TOP_LEFT);
 
-		cardWidth = Bindings.min(stackPane.widthProperty().divide(8), stackPane.heightProperty().multiply(25D / (7 * 22)));
+		// Max height filled = 22/5 cards (5 for complete card in sideboard, 13 in main board
+		// [any 4 + 1-9] + 4 extra for complete bottom card) * 7/5 h:w ratio, plus 7/15w for the
+		// New game button, = 154/25w + 7/15w = 497/75w; h = 75/497w
+		cardWidth = Bindings.min(stackPane.widthProperty().divide(8), stackPane.heightProperty().multiply(75D / 497));
 		xOffset = stackPane.widthProperty().subtract(cardWidth.multiply(8).subtract(10)).divide(2);
 
 		for (int s = 0; s < 8; s++) {
@@ -261,13 +264,13 @@ public class Window extends Application {
 			for (int i = 0; i < 2 && !moved; i++) {
 				newX = i == 0 ? (int) (x + 0.5) : x > newX ? (int) x + 1 : (int) x;
 
-				// If it's being replaced, don't try the slot next to it
-				if (i == 0 && newX == oldPosition.x) break;
-
 				if (newX < 0 || newX >= 8) {
 					moved = false;
 				} else {
 					destSideboard = 2 * newValue.getY() < cardWidth.doubleValue() * (game.cardsIn(newX) + 5) * 7 / 25 + 16;
+
+					// If it's being put back, don't try the slot next to it
+					if (i == 0 && newX == oldPosition.x && destSideboard == oldPosition.y < 0) break;
 
 					// The number of cards originally in the source slot; there can only be one in
 					// the sideboard
