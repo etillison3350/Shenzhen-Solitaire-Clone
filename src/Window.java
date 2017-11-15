@@ -261,6 +261,9 @@ public class Window extends Application {
 			for (int i = 0; i < 2 && !moved; i++) {
 				newX = i == 0 ? (int) (x + 0.5) : x > newX ? (int) x + 1 : (int) x;
 
+				// If it's being replaced, don't try the slot next to it
+				if (i == 0 && newX == oldPosition.x) break;
+
 				if (newX < 0 || newX >= 8) {
 					moved = false;
 				} else {

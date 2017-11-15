@@ -311,18 +311,8 @@ public class Game {
 	}
 
 	public boolean isWon() {
-		// Check whether the top board has all the right cards (rose, complete dragons, row of 8s)
-		if (!rose()) return false;
-
-		for (int i = 0; i < 3; i++) {
-			if ((sideboardCard(i) & 0b1001111) != 0b1001111) return false;
-		}
-
-		for (int color = 0; color < 3; color++) {
-			if (highestComplete(color) < 8) return false;
-		}
-
-		return true;
+		// The game is won when the main board is empty
+		return board.stream().allMatch(List::isEmpty);
 	}
 
 	public String asString() {
