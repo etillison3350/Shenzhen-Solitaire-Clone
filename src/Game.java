@@ -237,11 +237,12 @@ public class Game {
 	}
 
 	/**
-	 * Gives the slot index of a card to autofill. Does not move any cards.
-	 * @return the slot index the card is in (0 to 7, 8 to 10 for sideboard slots), or -1 if nothing
-	 *         was moved.
+	 * Gives the slot index of all cards to autofill. Does not move any cards.
+	 * @return the slot indices the cards are in (0 to 7, 8 to 10 for sideboard slots)
 	 */
-	public int autoFill() {
+	public Set<Integer> autoFill() {
+		final Set<Integer> ret = new HashSet<>();
+
 		// Iterate through the main board slots
 		for (int i = 0; i < board.size(); i++) {
 			if (cardsIn(i) <= 0) continue; // Cannot autofill from an empty slot
@@ -249,7 +250,7 @@ public class Game {
 			final int card = cardAt(i, cardsIn(i) - 1);
 
 			if (card == ROSE) { // Rose can always be autofilled
-				return i;
+				ret.add(i);
 			} else if ((card & 0b1001111) != DRAGON_MOD) { // Do not autofill dragons
 				// The number value of the card
 				final int value = card & 0b1111;
@@ -257,7 +258,7 @@ public class Game {
 					// if (value != 1) return i;
 
 					final int color = card >> 4 & 0b11;
-					if (highestComplete(color) == value - 1) return i;
+					if (highestComplete(color) == value - 1) ret.add(i);
 				}
 			}
 		}
@@ -267,19 +268,19 @@ public class Game {
 			final int card = sideboardCard(i);
 
 			if (card == ROSE) { // Rose can always be autofilled
-				return i | 0b1000;
+				ret.add(i | 0b1000);
 			} else if ((card & DRAGON_MOD) != DRAGON_MOD) { // Do not autofill dragons
 				final int value = card & 0b1111;
 				if (value <= maxAutoFill()) {
-					if (value != 1) return i | 0b1000;
+					if (value != 1) ret.add(i | 0b1000);
 
 					final int color = card >> 4 & 0b11;
-					if (highestComplete(color) >= 0) return i | 0b1000;
+					if (highestComplete(color) >= 0) ret.add(i | 0b1000);
 				}
 			}
 		}
 
-		return -1;
+		return ret;
 	}
 
 	/**

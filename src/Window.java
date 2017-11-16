@@ -2,8 +2,10 @@ import java.awt.Point;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javafx.animation.Animation;
@@ -15,14 +17,17 @@ import javafx.application.Application;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.NumberBinding;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.BorderStrokeStyle;
@@ -45,9 +50,33 @@ public class Window extends Application {
 	private NumberBinding xOffset;
 
 	private final BidirectionalHashMap<Point, Card> cards = new BidirectionalHashMap<>();
-	private boolean animating = false;
-	private final Set<Animation> activeAnimations = new HashSet<>();
+	private boolean dealing = false;
+	private final Map<Card, Animation> activeAnimations = new HashMap<Card, Animation>() {
+
+		@Override
+		public Animation put(final Card key, final Animation value) {
+			final Animation ret = super.put(key, value);
+			updateCards();
+			return ret;
+		}
+
+		@Override
+		public Animation remove(final Object key) {
+			final Animation ret = super.remove(key);
+			updateCards();
+			return ret;
+		}
+
+		private void updateCards() {
+			cards.values().forEach(card -> card.setBackground(new Background(new BackgroundFill(get(card) == null ? Color.LIGHTGREEN : Color.PINK, new CornerRadii(10), Insets.EMPTY))));
+		}
+
+		private static final long serialVersionUID = 348779665584700904L;
+
+	};
 	private final Button[] buttons = new Button[3];
+
+	public static final Card PLACEHOLDER_CARD = new Card(-1, new SimpleIntegerProperty(0).negate());
 
 	public static void main(final String[] args) throws FileNotFoundException {
 		Application.launch(args);
@@ -83,22 +112,28 @@ public class Window extends Application {
 
 			final Button button = buttons[c] = new Button(Card.COLORS[c]);
 			button.setOnAction(event -> {
-				if (animating) return;
-
 				final DragonCollectionResult res = game.canCollectDragons(color);
 				if (res != null) {
 					game.collectDragons(res);
 					buttons[color].setDisable(true);
 
-					animating = true;
 					final ParallelTransition move = new ParallelTransition();
 
+					final Map<Point, Card> movingCards = new HashMap<>();
 					for (final int slot : res.slots) {
-						final int index = slot >= 8 ? -1 : game.cardsIn(slot);
-						final Card card = cards.get(new Point(slot % 8, index));
+						final Point point = new Point(slot % 8, slot >= 8 ? -1 : game.cardsIn(slot));
+						final Card card = cards.get(point);
+
+						movingCards.put(point, card);
+					}
+
+					for (final Point pos : movingCards.keySet()) {
+						final Card card = movingCards.get(pos);
 						card.translateXProperty().unbind();
 						card.translateYProperty().unbind();
 						card.toFront();
+
+						if (activeAnimations.get(card) != null) return;
 
 						final TranslateTransition anim = new TranslateTransition(new Duration(TRANSLATE_DURATION), card);
 						anim.toXProperty().bind(xBinding(res.destinationSlot, -1));
@@ -107,9 +142,8 @@ public class Window extends Application {
 					}
 
 					move.setOnFinished(e -> {
-						for (final int slot : res.slots) {
-							final int index = slot >= 8 ? -1 : game.cardsIn(slot);
-							final Card card = cards.get(new Point(slot % 8, index));
+						for (final Point pos : movingCards.keySet()) {
+							final Card card = movingCards.get(pos);
 
 							stackPane.getChildren().remove(card);
 							cards.removeValue(card);
@@ -121,10 +155,11 @@ public class Window extends Application {
 
 						newCard.translateXProperty().bind(xBinding(res.destinationSlot, -1));
 
-						activeAnimations.remove(move);
-						autocomplete(true);
+						movingCards.values().forEach(activeAnimations::remove);
+						autocomplete();
 					});
-					activeAnimations.add(move);
+
+					movingCards.values().forEach(card -> activeAnimations.put(card, move));
 					move.play();
 				}
 			});
@@ -216,20 +251,21 @@ public class Window extends Application {
 			cards.put(new Point(x, y), card);
 		}
 
-		animating = true;
 		deal.setOnFinished(e -> {
-			autocomplete(true);
-			activeAnimations.remove(deal);
+			autocomplete();
+			activeAnimations.remove(PLACEHOLDER_CARD);
+			dealing = false;
 		});
-		activeAnimations.add(deal);
+		dealing = true;
+		activeAnimations.put(PLACEHOLDER_CARD, deal);
 		deal.play();
 	}
 
 	private void collectAndRestart() {
-		for (final Animation animation : activeAnimations) {
+		for (final Animation animation : activeAnimations.values()) {
 			animation.stop();
 		}
-		animating = true;
+		dealing = true;
 		final ParallelTransition collect = new ParallelTransition();
 		for (final Card card : cards.values()) {
 			final TranslateTransition move = new TranslateTransition(Duration.millis(TRANSLATE_DURATION), card);
@@ -242,22 +278,17 @@ public class Window extends Application {
 
 		collect.setOnFinished(event -> {
 			startGame();
-			animating = false;
-			activeAnimations.remove(collect);
+			activeAnimations.remove(PLACEHOLDER_CARD);
 		});
-		activeAnimations.add(collect);
+		activeAnimations.put(PLACEHOLDER_CARD, collect);
 		collect.play();
 	}
 
 	private ChangeListener<Point2D> createOnMove(final Card card) {
 		return (observableNull, oldValue, newValue) -> {
-			animating = true;
-
 			final Point oldPosition = cards.getKey(card);
 
 			final double x = (newValue.getX() - xOffset.doubleValue()) / cardWidth.doubleValue();
-
-			// int newX = (int) ();
 
 			boolean moved = false, destSideboard = false;
 			int srcSlotCards = 0, destSlotCards = 0, destIndex = 0, newX = 0;
@@ -294,6 +325,8 @@ public class Window extends Application {
 
 			Card oldCard = null;
 
+			final Set<Card> animatingCards = new HashSet<>();
+
 			// Update the positions in #cards if cards were moved
 			if (moved) {
 				// Determine the color of the card if it's being completed
@@ -316,9 +349,15 @@ public class Window extends Application {
 
 				xBinding = xBinding(newX, destSideboard ? -1 : destSlotCards);
 				yBinding = yBinding(newX, destSideboard ? -1 : destSlotCards);
+
+				animatingCards.add(card);
 			} else {
 				xBinding = xBinding(oldPosition.x, oldPosition.y);
 				yBinding = yBinding(oldPosition.x, oldPosition.y);
+
+				for (int i = oldPosition.y; i < game.cardsIn(oldPosition.x); i++) {
+					animatingCards.add(cards.get(new Point(oldPosition.x, i)));
+				}
 			}
 
 			anim.toXProperty().bind(xBinding);
@@ -336,13 +375,11 @@ public class Window extends Application {
 						stackPane.getChildren().remove(finalOldCard);
 					}
 
-					autocomplete(true);
-				} else {
-					animating = false;
+					autocomplete();
 				}
-				activeAnimations.remove(anim);
+				animatingCards.forEach(activeAnimations::remove);
 			});
-			activeAnimations.add(anim);
+			animatingCards.forEach(c -> activeAnimations.put(c, anim));
 			anim.play();
 		};
 	}
@@ -370,46 +407,55 @@ public class Window extends Application {
 		return cards.get(new Point(slot, index - 1)).translateYProperty().add(cardWidth.multiply(7D / 25));
 	}
 
-	private void autocomplete(final boolean changeAnimating) {
-		final int move = game.autoFill();
-		if (move == -1) {
-			if (game.isWon()) {
-				winGame();
-			} else {
-				animating = false;
-				for (int color = 0; color < 3; color++) {
-					buttons[color].setDisable(game.canCollectDragons(color) == null);
+	private void autocomplete() {
+		for (int color = 0; color < 3; color++) {
+			buttons[color].setDisable(game.canCollectDragons(color) == null);
+		}
+
+		final Set<Integer> moves = game.autoFill();
+		if (!moves.isEmpty()) {
+			Card card = null;
+			for (final Integer move : moves) {
+				if (move < 8) { // Main board
+					card = cards.get(new Point(move, game.cardsIn(move) - 1));
+				} else { // Sideboard
+					card = cards.get(new Point(move % 8, -1));
 				}
+				if (activeAnimations.get(card) != null || card.isDragging()) continue;
+
+				game.move(move % 8, move >= 8 ? -1 : game.cardsIn(move) - 1, 0, -2);
 			}
-		} else {
-			Card card;
-			if (move < 8) { // Main board
-				card = cards.get(new Point(move, game.cardsIn(move) - 1));
-			} else { // Sideboard
-				card = cards.get(new Point(move % 8, -1));
+
+			if (card != null) {
+				card.toFront();
+				final int xTarget = card.card == Game.ROSE ? 4 : 5 + (card.card >> 4 & 0b11);
+				final Card old = cards.put(new Point(xTarget, -2), card);
+
+				final TranslateTransition tt = new TranslateTransition(Duration.millis(TRANSLATE_DURATION), card);
+				tt.toXProperty().bind(xBinding(xTarget, 0));
+				tt.setToY(0);
+				card.translateXProperty().unbind();
+				card.translateYProperty().unbind();
+
+				final Card finalCard = card;
+				tt.setOnFinished(event -> {
+					finalCard.translateXProperty().bind(xBinding(xTarget, 0));
+					finalCard.translateYProperty().set(0);
+
+					if (old != null) stackPane.getChildren().remove(old);
+
+					activeAnimations.remove(finalCard);
+					autocomplete();
+				});
+				activeAnimations.put(card, tt);
+				tt.play();
+
+				return;
 			}
-			card.toFront();
-			game.move(move % 8, move >= 8 ? -1 : game.cardsIn(move) - 1, 0, -2);
-			final int xTarget = card.card == Game.ROSE ? 4 : 5 + (card.card >> 4 & 0b11);
-			final Card old = cards.put(new Point(xTarget, -2), card);
+		}
 
-			final TranslateTransition tt = new TranslateTransition(Duration.millis(TRANSLATE_DURATION), card);
-			tt.toXProperty().bind(xBinding(xTarget, 0));
-			tt.setToY(0);
-			card.translateXProperty().unbind();
-			card.translateYProperty().unbind();
-
-			tt.setOnFinished(event -> {
-				card.translateXProperty().bind(xBinding(xTarget, 0));
-				card.translateYProperty().set(0);
-
-				if (old != null) stackPane.getChildren().remove(old);
-
-				activeAnimations.remove(tt);
-				autocomplete(changeAnimating);
-			});
-			activeAnimations.add(tt);
-			tt.play();
+		if (game.isWon()) {
+			winGame();
 		}
 	}
 
@@ -417,31 +463,33 @@ public class Window extends Application {
 		final List<Card> cards = new ArrayList<>(this.cards.values());
 		Collections.shuffle(cards);
 		for (int i = 0; i < cards.size(); i++) {
-			final FadeTransition fade = new FadeTransition(Duration.millis(TRANSLATE_DURATION), cards.get(i));
+			final Card card = cards.get(i);
+
+			final FadeTransition fade = new FadeTransition(Duration.millis(TRANSLATE_DURATION), card);
 			fade.setFromValue(1);
 			fade.setToValue(0);
 			fade.setDelay(Duration.millis(0.5 * i * TRANSLATE_DURATION));
 			if (i == cards.size() - 1) {
 				fade.setOnFinished(event -> {
-					activeAnimations.remove(fade);
+					activeAnimations.remove(card);
 
 					final PauseTransition pause = new PauseTransition(Duration.seconds(2));
 					pause.setOnFinished(e -> {
-						activeAnimations.remove(pause);
+						activeAnimations.remove(PLACEHOLDER_CARD);
 						startGame();
 					});
-					activeAnimations.add(pause);
+					activeAnimations.put(PLACEHOLDER_CARD, pause);
 					pause.play();
 				});
 			}
-			activeAnimations.add(fade);
+			activeAnimations.put(card, fade);
 			fade.play();
 		}
 	}
 
 	private boolean isDraggable(final Card card) {
 		final Point position = cards.getKey(card);
-		return !animating && game.canDrag(position.x, position.y);
+		return !dealing && activeAnimations.get(card) == null && game.canDrag(position.x, position.y);
 	}
 
 	private static Label makePlaceholder(final NumberBinding widthBinding) {

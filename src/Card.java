@@ -92,6 +92,10 @@ public class Card extends Label {
 		});
 	}
 
+	public boolean isDragging() {
+		return start != null;
+	}
+
 	// Cards:
 	// Numerical: 0b0xxyyyy, xx = color, yyyy = value
 	// Dragons: 0b1xx0000, xx = color
