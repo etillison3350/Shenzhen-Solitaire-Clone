@@ -20,14 +20,12 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
-import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.BorderStrokeStyle;
@@ -51,29 +49,8 @@ public class Window extends Application {
 
 	private final BidirectionalHashMap<Point, Card> cards = new BidirectionalHashMap<>();
 	private boolean dealing = false;
-	private final Map<Card, Animation> activeAnimations = new HashMap<Card, Animation>() {
-
-		@Override
-		public Animation put(final Card key, final Animation value) {
-			final Animation ret = super.put(key, value);
-			updateCards();
-			return ret;
-		}
-
-		@Override
-		public Animation remove(final Object key) {
-			final Animation ret = super.remove(key);
-			updateCards();
-			return ret;
-		}
-
-		private void updateCards() {
-			cards.values().forEach(card -> card.setBackground(new Background(new BackgroundFill(get(card) == null ? Color.LIGHTGREEN : Color.PINK, new CornerRadii(10), Insets.EMPTY))));
-		}
-
-		private static final long serialVersionUID = 348779665584700904L;
-
-	};
+	private long autocompletingId = -1;
+	private final Map<Card, Animation> activeAnimations = new HashMap<>();
 	private final Button[] buttons = new Button[3];
 
 	public static final Card PLACEHOLDER_CARD = new Card(-1, new SimpleIntegerProperty(0).negate());
@@ -98,6 +75,7 @@ public class Window extends Application {
 			if (s != 3) {
 				final Label topPlaceholder = makePlaceholder(cardWidth);
 				topPlaceholder.translateXProperty().bind(xBinding(s, -1));
+				topPlaceholder.translateYProperty().bind(yBinding(s, -1));
 				stackPane.getChildren().add(topPlaceholder);
 			}
 
@@ -165,7 +143,7 @@ public class Window extends Application {
 			});
 
 			button.translateXProperty().bind(xBinding(3, -1));
-			button.translateYProperty().bind(cardWidth.multiply(c * 7D / 15));
+			button.translateYProperty().bind(cardWidth.multiply(c * 7D / 15).add(5));
 			button.minWidthProperty().bind(cardWidth.subtract(10));
 			button.maxWidthProperty().bind(button.minWidthProperty());
 			button.minHeightProperty().bind(cardWidth.multiply(7D / 15).subtract(5));
@@ -338,19 +316,20 @@ public class Window extends Application {
 
 				if (numCards > 1) { // If more than one card is moved, move them sequentially
 					for (int n = 0; n < numCards; n++) {
-						cards.put(new Point(newX, destSlotCards + n), cards.get(new Point(oldPosition.x, oldPosition.y + n)));
+						final Card c = cards.get(new Point(oldPosition.x, oldPosition.y + n));
+						cards.put(new Point(newX, destSlotCards + n), c);
+						animatingCards.add(c);
 					}
 				} else {
 					// Move the card to the new slot; if moving to the sideboard, use index
 					// (-2, -1, or 0), otherwise use destSlotCards (0+)
 					final Card old = cards.put(new Point(newX, destIndex < 0 ? destIndex : destSlotCards), card);
 					if (destIndex == -2) oldCard = old;
+					animatingCards.add(card);
 				}
 
 				xBinding = xBinding(newX, destSideboard ? -1 : destSlotCards);
 				yBinding = yBinding(newX, destSideboard ? -1 : destSlotCards);
-
-				animatingCards.add(card);
 			} else {
 				xBinding = xBinding(oldPosition.x, oldPosition.y);
 				yBinding = yBinding(oldPosition.x, oldPosition.y);
@@ -374,10 +353,9 @@ public class Window extends Application {
 					if (finalOldCard != null) {
 						stackPane.getChildren().remove(finalOldCard);
 					}
-
-					autocomplete();
 				}
 				animatingCards.forEach(activeAnimations::remove);
+				autocomplete();
 			});
 			animatingCards.forEach(c -> activeAnimations.put(c, anim));
 			anim.play();
@@ -399,7 +377,7 @@ public class Window extends Application {
 	}
 
 	private ObservableValue<Number> yBinding(final int slot, final int index, final boolean allowRelative) {
-		if (index < 0) return new SimpleDoubleProperty(0);
+		if (index < 0) return new SimpleDoubleProperty(5);
 
 		final int trueIndex = game == null ? 0 : Math.min(game.cardsIn(slot), index);
 		if (!allowRelative || trueIndex == 0) return cardWidth.multiply((trueIndex + 5) * 7D / 25).add(16);
@@ -408,6 +386,13 @@ public class Window extends Application {
 	}
 
 	private void autocomplete() {
+		this.autocomplete(System.nanoTime());
+	}
+
+	private void autocomplete(final long id) {
+		if (autocompletingId >= 0 && autocompletingId != id) return;
+		autocompletingId = id;
+
 		for (int color = 0; color < 3; color++) {
 			buttons[color].setDisable(game.canCollectDragons(color) == null);
 		}
@@ -421,9 +406,13 @@ public class Window extends Application {
 				} else { // Sideboard
 					card = cards.get(new Point(move % 8, -1));
 				}
-				if (activeAnimations.get(card) != null || card.isDragging()) continue;
+				if (activeAnimations.get(card) != null || card.isDragging()) {
+					card = null;
+					continue;
+				}
 
 				game.move(move % 8, move >= 8 ? -1 : game.cardsIn(move) - 1, 0, -2);
+				break;
 			}
 
 			if (card != null) {
@@ -432,20 +421,20 @@ public class Window extends Application {
 				final Card old = cards.put(new Point(xTarget, -2), card);
 
 				final TranslateTransition tt = new TranslateTransition(Duration.millis(TRANSLATE_DURATION), card);
-				tt.toXProperty().bind(xBinding(xTarget, 0));
-				tt.setToY(0);
+				tt.toXProperty().bind(xBinding(xTarget, -2));
+				tt.toYProperty().bind(yBinding(xTarget, -2));
 				card.translateXProperty().unbind();
 				card.translateYProperty().unbind();
 
 				final Card finalCard = card;
 				tt.setOnFinished(event -> {
-					finalCard.translateXProperty().bind(xBinding(xTarget, 0));
-					finalCard.translateYProperty().set(0);
+					finalCard.translateXProperty().bind(xBinding(xTarget, -2));
+					finalCard.translateYProperty().bind(yBinding(xTarget, -2));
 
 					if (old != null) stackPane.getChildren().remove(old);
 
 					activeAnimations.remove(finalCard);
-					autocomplete();
+					autocomplete(autocompletingId);
 				});
 				activeAnimations.put(card, tt);
 				tt.play();
@@ -457,6 +446,7 @@ public class Window extends Application {
 		if (game.isWon()) {
 			winGame();
 		}
+		autocompletingId = -1;
 	}
 
 	private void winGame() {

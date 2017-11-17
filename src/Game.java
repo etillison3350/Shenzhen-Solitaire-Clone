@@ -186,10 +186,12 @@ public class Game {
 		// Check open top board slots
 		int openIndex = -1;
 		for (int i = 0; i < 3; i++) {
+			final int sideboardCard = sideboardCard(i);
+
 			// Can use an empty space or a space with the correct dragon in it already
-			if (sideboardCard(i) < 0 || sideboardCard(i) == dragon) {
+			if (sideboardCard < 0 || sideboardCard == dragon) {
 				openIndex = i;
-				break;
+				if (sideboardCard == dragon) break;
 			}
 		}
 
