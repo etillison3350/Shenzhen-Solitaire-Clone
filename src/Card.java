@@ -56,7 +56,7 @@ public class Card extends Label {
 
 		setBackground(new Background(new BackgroundFill(new Color(.9, .9, .9, 1), new CornerRadii(10), Insets.EMPTY)));
 
-		setEffect(new DropShadow(3, 0, 1, Color.BLACK));
+		setEffect(new DropShadow(3.25, 0, 1, Color.BLACK));
 
 		setAlignment(Pos.TOP_LEFT);
 

@@ -105,6 +105,8 @@ public class Window extends Application {
 						movingCards.put(point, card);
 					}
 
+					final ObservableValue<Number> xBinding = xBinding(res.destinationSlot, -1);
+					final ObservableValue<Number> yBinding = yBinding(res.destinationSlot, -1);
 					for (final Point pos : movingCards.keySet()) {
 						final Card card = movingCards.get(pos);
 						card.translateXProperty().unbind();
@@ -114,8 +116,8 @@ public class Window extends Application {
 						if (activeAnimations.get(card) != null) return;
 
 						final TranslateTransition anim = new TranslateTransition(new Duration(TRANSLATE_DURATION), card);
-						anim.toXProperty().bind(xBinding(res.destinationSlot, -1));
-						anim.toYProperty().set(0);
+						anim.toXProperty().bind(xBinding);
+						anim.toYProperty().bind(yBinding);
 						move.getChildren().add(anim);
 					}
 
@@ -131,7 +133,8 @@ public class Window extends Application {
 						stackPane.getChildren().add(newCard);
 						cards.put(new Point(res.destinationSlot, -1), newCard);
 
-						newCard.translateXProperty().bind(xBinding(res.destinationSlot, -1));
+						newCard.translateXProperty().bind(xBinding);
+						newCard.translateYProperty().bind(yBinding);
 
 						movingCards.values().forEach(activeAnimations::remove);
 						autocomplete();
@@ -334,7 +337,7 @@ public class Window extends Application {
 				xBinding = xBinding(oldPosition.x, oldPosition.y);
 				yBinding = yBinding(oldPosition.x, oldPosition.y);
 
-				for (int i = oldPosition.y; i < game.cardsIn(oldPosition.x); i++) {
+				for (int i = oldPosition.y; i >= 0 && i < game.cardsIn(oldPosition.x); i++) {
 					animatingCards.add(cards.get(new Point(oldPosition.x, i)));
 				}
 			}
