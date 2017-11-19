@@ -12,6 +12,7 @@ import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
+import javafx.animation.SequentialTransition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
@@ -22,6 +23,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.scene.PerspectiveCamera;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -89,61 +91,7 @@ public class Window extends Application {
 			final int color = c;
 
 			final Button button = buttons[c] = new Button(Card.COLORS[c]);
-			button.setOnAction(event -> {
-				final DragonCollectionResult res = game.canCollectDragons(color);
-				if (res != null) {
-					game.collectDragons(res);
-					buttons[color].setDisable(true);
-
-					final ParallelTransition move = new ParallelTransition();
-
-					final Map<Point, Card> movingCards = new HashMap<>();
-					for (final int slot : res.slots) {
-						final Point point = new Point(slot % 8, slot >= 8 ? -1 : game.cardsIn(slot));
-						final Card card = cards.get(point);
-
-						movingCards.put(point, card);
-					}
-
-					final ObservableValue<Number> xBinding = xBinding(res.destinationSlot, -1);
-					final ObservableValue<Number> yBinding = yBinding(res.destinationSlot, -1);
-					for (final Point pos : movingCards.keySet()) {
-						final Card card = movingCards.get(pos);
-						card.translateXProperty().unbind();
-						card.translateYProperty().unbind();
-						card.toFront();
-
-						if (activeAnimations.get(card) != null) return;
-
-						final TranslateTransition anim = new TranslateTransition(new Duration(TRANSLATE_DURATION), card);
-						anim.toXProperty().bind(xBinding);
-						anim.toYProperty().bind(yBinding);
-						move.getChildren().add(anim);
-					}
-
-					move.setOnFinished(e -> {
-						for (final Point pos : movingCards.keySet()) {
-							final Card card = movingCards.get(pos);
-
-							stackPane.getChildren().remove(card);
-							cards.removeValue(card);
-						}
-
-						final Card newCard = new Card(game.sideboardCard(res.destinationSlot), cardWidth, this::isDraggable);
-						stackPane.getChildren().add(newCard);
-						cards.put(new Point(res.destinationSlot, -1), newCard);
-
-						newCard.translateXProperty().bind(xBinding);
-						newCard.translateYProperty().bind(yBinding);
-
-						movingCards.values().forEach(activeAnimations::remove);
-						autocomplete();
-					});
-
-					movingCards.values().forEach(card -> activeAnimations.put(card, move));
-					move.play();
-				}
-			});
+			button.setOnAction(event -> collectDragons(color));
 
 			button.translateXProperty().bind(xBinding(3, -1));
 			button.translateYProperty().bind(cardWidth.multiply(c * 7D / 15).add(5));
@@ -177,7 +125,9 @@ public class Window extends Application {
 		});
 		stackPane.getChildren().add(newGame);
 
-		stage.setScene(new Scene(stackPane, 640, 480));
+		final Scene scene = new Scene(stackPane, 640, 480);
+		scene.setCamera(new PerspectiveCamera());
+		stage.setScene(scene);
 		stage.show();
 
 		startGame();
@@ -196,20 +146,32 @@ public class Window extends Application {
 			final int y = i / 8;
 
 			final Card card = new Card(game.cardAt(x, y), cardWidth, this::isDraggable);
+			if (i == 39) card.enableShadow(true);
 
 			final ObservableValue<Number> startX = xBinding(4, -1, false), startY = yBinding(4, -1, false), endX = xBinding(x, y), endY = yBinding(x, y);
+			card.translateXProperty().bind(startX);
+			card.translateYProperty().bind(startY);
 
 			final TranslateTransition anim = new TranslateTransition(Duration.millis(TRANSLATE_DURATION), card);
-			anim.fromXProperty().bind(startX);
-			anim.fromYProperty().bind(startY);
 			anim.toXProperty().bind(endX);
 			anim.toYProperty().bind(endY);
-			anim.setDelay(Duration.millis(TRANSLATE_DURATION * i / 4D));
 			anim.setOnFinished(event -> {
 				card.translateXProperty().bind(endX);
 				card.translateYProperty().bind(endY);
+				activeAnimations.remove(card);
 			});
-			deal.getChildren().add(anim);
+
+			final PauseTransition wait = new PauseTransition(Duration.millis(TRANSLATE_DURATION * i / 4D));
+			wait.setOnFinished(e -> {
+				card.translateXProperty().unbind();
+				card.translateYProperty().unbind();
+				card.enableShadow(true);
+				card.toFront();
+				activeAnimations.put(card, anim);
+				anim.play();
+			});
+
+			deal.getChildren().add(wait);
 
 			card.setOnMove(createOnMove(card));
 
@@ -232,20 +194,24 @@ public class Window extends Application {
 			cards.put(new Point(x, y), card);
 		}
 
-		deal.setOnFinished(e -> {
+		final SequentialTransition dealAndWait = new SequentialTransition(deal, new PauseTransition(Duration.millis(2 * TRANSLATE_DURATION)));
+		dealAndWait.setOnFinished(event -> {
 			autocomplete();
 			activeAnimations.remove(PLACEHOLDER_CARD);
 			dealing = false;
 		});
+
 		dealing = true;
-		activeAnimations.put(PLACEHOLDER_CARD, deal);
-		deal.play();
+		activeAnimations.put(PLACEHOLDER_CARD, dealAndWait);
+		dealAndWait.play();
 	}
 
 	private void collectAndRestart() {
 		for (final Animation animation : activeAnimations.values()) {
 			animation.stop();
 		}
+		activeAnimations.clear();
+
 		dealing = true;
 		final ParallelTransition collect = new ParallelTransition();
 		for (final Card card : cards.values()) {
@@ -254,15 +220,21 @@ public class Window extends Application {
 			card.translateYProperty().unbind();
 			move.toXProperty().bind(xBinding(4, -1));
 			move.toYProperty().bind(yBinding(4, -1));
+			move.setOnFinished(event -> card.setText(""));
 			collect.getChildren().add(move);
 		}
 
+		final SequentialTransition wait = new SequentialTransition(collect, new PauseTransition(Duration.millis(TRANSLATE_DURATION)));
+
 		collect.setOnFinished(event -> {
-			startGame();
-			activeAnimations.remove(PLACEHOLDER_CARD);
+			cards.values().stream().skip(1).forEach(stackPane.getChildren()::remove);
 		});
-		activeAnimations.put(PLACEHOLDER_CARD, collect);
-		collect.play();
+		wait.setOnFinished(event -> {
+			activeAnimations.remove(PLACEHOLDER_CARD);
+			startGame();
+		});
+		activeAnimations.put(PLACEHOLDER_CARD, wait);
+		wait.play();
 	}
 
 	private ChangeListener<Point2D> createOnMove(final Card card) {
@@ -363,6 +335,62 @@ public class Window extends Application {
 			animatingCards.forEach(c -> activeAnimations.put(c, anim));
 			anim.play();
 		};
+	}
+
+	private void collectDragons(final int color) {
+		final DragonCollectionResult res = game.canCollectDragons(color);
+		if (res != null) {
+			game.collectDragons(res);
+			buttons[color].setDisable(true);
+
+			final ParallelTransition move = new ParallelTransition();
+
+			final Map<Point, Card> movingCards = new HashMap<>();
+			for (final int slot : res.slots) {
+				final Point point = new Point(slot % 8, slot >= 8 ? -1 : game.cardsIn(slot));
+				final Card card = cards.get(point);
+
+				movingCards.put(point, card);
+			}
+
+			final ObservableValue<Number> xBinding = xBinding(res.destinationSlot, -1);
+			final ObservableValue<Number> yBinding = yBinding(res.destinationSlot, -1);
+			for (final Point pos : movingCards.keySet()) {
+				final Card card = movingCards.get(pos);
+				card.translateXProperty().unbind();
+				card.translateYProperty().unbind();
+				card.toFront();
+
+				if (activeAnimations.get(card) != null) return;
+
+				final TranslateTransition anim = new TranslateTransition(new Duration(TRANSLATE_DURATION), card);
+				anim.toXProperty().bind(xBinding);
+				anim.toYProperty().bind(yBinding);
+				move.getChildren().add(anim);
+			}
+
+			move.setOnFinished(e -> {
+				for (final Point pos : movingCards.keySet()) {
+					final Card card = movingCards.get(pos);
+
+					stackPane.getChildren().remove(card);
+					cards.removeValue(card);
+				}
+
+				final Card newCard = new Card(game.sideboardCard(res.destinationSlot), cardWidth, this::isDraggable);
+				stackPane.getChildren().add(newCard);
+				cards.put(new Point(res.destinationSlot, -1), newCard);
+
+				newCard.translateXProperty().bind(xBinding);
+				newCard.translateYProperty().bind(yBinding);
+
+				movingCards.values().forEach(activeAnimations::remove);
+				autocomplete();
+			});
+
+			movingCards.values().forEach(card -> activeAnimations.put(card, move));
+			move.play();
+		}
 	}
 
 	private ObservableValue<Number> xBinding(final int slot, final int index) {

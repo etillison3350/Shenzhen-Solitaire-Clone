@@ -1,14 +1,13 @@
 import java.util.function.Predicate;
 
 import javafx.beans.binding.NumberBinding;
-import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.Property;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
+import javafx.geometry.Point3D;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
@@ -23,8 +22,6 @@ public class Card extends Label {
 
 	public final int card;
 	private final NumberBinding widthBinding, heightBinding;
-	private final IntegerProperty slot = new SimpleIntegerProperty(0);
-	private final IntegerProperty index = new SimpleIntegerProperty(0);
 	private final Property<ChangeListener<Point2D>> onMove = new SimpleObjectProperty<>();
 	private final Property<EventHandler<MouseEvent>> onDrag = new SimpleObjectProperty<>();
 
@@ -55,10 +52,8 @@ public class Card extends Label {
 		});
 
 		setBackground(new Background(new BackgroundFill(new Color(.9, .9, .9, 1), new CornerRadii(10), Insets.EMPTY)));
-
-		setEffect(new DropShadow(3.25, 0, 1, Color.BLACK));
-
 		setAlignment(Pos.TOP_LEFT);
+		setRotationAxis(new Point3D(0, 1, 0));
 
 		setOnMousePressed(event -> {
 			if (!draggable.test(this)) return;
@@ -92,6 +87,15 @@ public class Card extends Label {
 		});
 	}
 
+	public void enableShadow(final boolean enabled) {
+		if (!enabled) {
+			setEffect(null);
+		} else if (getEffect() == null && (card == Game.ROSE || (card & 0b1001111) != 0b1001111)) {
+			setEffect(new DropShadow(3.25, 0, 1, Color.BLACK));
+		}
+
+	}
+
 	public boolean isDragging() {
 		return start != null;
 	}
@@ -109,7 +113,7 @@ public class Card extends Label {
 			} else if ((card & 0b1001111) == Game.DRAGON_MOD) {
 				return "Dragon";
 			} else {
-				return "X";
+				return "";
 			}
 		} else {
 			return Integer.toString(1 + (card & 0b1111));
@@ -125,32 +129,6 @@ public class Card extends Label {
 			default:
 				return Color.BLACK;
 		}
-	}
-
-	public int getSlot() {
-		return slot.get();
-	}
-
-	public void setSlot(final int slot) {
-		if (slot < 0 || slot >= 8) throw new IllegalArgumentException("Slot value (" + slot + ") out of bounds");
-
-		this.slot.set(slot);
-	}
-
-	public IntegerProperty slotProperty() {
-		return slot;
-	}
-
-	public int getIndex() {
-		return index.get();
-	}
-
-	public void setIndex(final int index) {
-		this.index.set(index);
-	}
-
-	public IntegerProperty indexProperty() {
-		return index;
 	}
 
 	public ChangeListener<Point2D> getOnMove() {
