@@ -11,6 +11,7 @@ import javafx.geometry.Point3D;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
@@ -28,6 +29,8 @@ public class Card extends Label {
 	private double offsetX, offsetY;
 	private Point2D start;
 	public static final String[] COLORS = new String[] {"Red", "Green", "Black"};
+	public static final String[] DRAGONS = new String[] {"\u4E2D", "\u767C", "\u000B"};// "\uD83D\uDDCC"};
+	public static final String[] NUMERALS = new String[] {"\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D", "\u4E03", "\u516B", "\u4E5D"};
 
 	public Card(final int card, final NumberBinding widthBinding) {
 		this(card, widthBinding, c -> true);
@@ -56,7 +59,7 @@ public class Card extends Label {
 		setRotationAxis(new Point3D(0, 1, 0));
 
 		setOnMousePressed(event -> {
-			if (!draggable.test(this)) return;
+			if (!draggable.test(this) || event.getButton() != MouseButton.PRIMARY) return;
 
 			if (onDrag.getValue() != null) {
 				onDrag.getValue().handle(event);
@@ -68,7 +71,7 @@ public class Card extends Label {
 		});
 
 		setOnMouseDragged(event -> {
-			if (start == null) return;
+			if (start == null || event.getButton() != MouseButton.PRIMARY) return;
 
 			translateXProperty().unbind();
 			translateYProperty().unbind();
@@ -77,7 +80,7 @@ public class Card extends Label {
 		});
 
 		setOnMouseReleased(event -> {
-			if (start == null) return;
+			if (start == null || event.getButton() != MouseButton.PRIMARY) return;
 
 			if (onMove.getValue() != null) {
 				onMove.getValue().changed(null, start, new Point2D(getTranslateX(), getTranslateY()));
@@ -109,14 +112,15 @@ public class Card extends Label {
 	public static String nameOfCard(final int card) {
 		if ((card & 0b1000000) > 0) {
 			if (card == Game.ROSE) {
-				return "Rose";
+				return "\uD83C\uDF39";
 			} else if ((card & 0b1001111) == Game.DRAGON_MOD) {
-				return "Dragon";
+				return DRAGONS[card >> 4 & 0b11];
 			} else {
 				return "";
 			}
 		} else {
-			return Integer.toString(1 + (card & 0b1111));
+			final int value = card & 0b1111;
+			return String.format("%d\n %s", 1 + value, NUMERALS[value]);
 		}
 	}
 

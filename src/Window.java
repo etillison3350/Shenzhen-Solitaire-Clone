@@ -194,11 +194,12 @@ public class Window extends Application {
 			cards.put(new Point(x, y), card);
 		}
 
-		final SequentialTransition dealAndWait = new SequentialTransition(deal, new PauseTransition(Duration.millis(2 * TRANSLATE_DURATION)));
+		final SequentialTransition dealAndWait = new SequentialTransition(deal, new PauseTransition(Duration.millis(1.5 * TRANSLATE_DURATION)));
 		dealAndWait.setOnFinished(event -> {
 			autocomplete();
 			activeAnimations.remove(PLACEHOLDER_CARD);
 			dealing = false;
+			// collectAndRestart();
 		});
 
 		dealing = true;
